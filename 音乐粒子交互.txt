@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Y2K VISUALIZER // V10.0 BORAN MADE</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+
+        /* --- GLOBAL RESET & FIX --- */
+        * {
+            box-sizing: border-box;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body { 
+            margin: 0; overflow: hidden; 
+            background-color: #000; 
+            font-family: 'Share Tech Mono', monospace; 
+            color: #00f3ff; /* Cyber Cyan */
+        }
+        
+        #canvas-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+        
+        /* --- HUD LAYER --- */
+        #ui-layer { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            z-index: 10; pointer-events: none; 
+            display: flex; flex-direction: column; justify-content: space-between; 
+            padding: 30px; 
+        }
+        
+        /* Glassmorphism Panel */
+        .panel { 
+            background: rgba(10, 20, 30, 0.6); 
+            backdrop-filter: blur(12px); 
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(0, 243, 255, 0.3); 
+            border-radius: 4px;
+            padding: 20px; 
+            pointer-events: auto; 
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+            min-width: 300px;
+            max-width: 340px;
+            margin-bottom: 10px;
+            transition: all 0.3s ease;
+        }
+        
+        .panel:hover {
+            border-color: rgba(0, 243, 255, 0.6);
+            box-shadow: 0 0 25px rgba(0, 243, 255, 0.15);
+        }
+
+        h1 { 
+            margin: 0 0 10px 0; 
+            font-size: 1.6rem; 
+            letter-spacing: 3px; 
+            border-bottom: 1px solid rgba(0, 243, 255, 0.3); 
+            padding-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: #fff;
+        }
+        
+        h1::after {
+            content: '● REC';
+            font-size: 0.8rem;
+            color: #ff0055;
+            animation: pulse 2s infinite;
+        }
+
+        /* Webcam Frame */
+        #webcam-wrapper {
+            position: relative; width: 100%; height: 120px;
+            border: 1px solid rgba(0, 243, 255, 0.2); 
+            margin-top: 15px; overflow: hidden; background: #000;
+            border-radius: 2px;
+        }
+        #webcam { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); opacity: 0.8; }
+        
+        #webcam-wrapper::after {
+            content: ''; position: absolute; top:0; left:0; width:100%; height:100%;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            background-size: 100% 2px, 3px 100%;
+            pointer-events: none;
+        }
+
+        #gesture-status {
+            position: absolute; bottom: 0; left: 0; width: 100%;
+            background: rgba(0, 15, 20, 0.9); 
+            color: #00f3ff; font-size: 0.8rem; text-align: center;
+            padding: 4px 0; border-top: 1px solid rgba(0, 243, 255, 0.3);
+            letter-spacing: 1px;
+        }
+
+        /* Controls */
+        .control-group { margin-top: 15px; }
+        label { 
+            display: flex; justify-content: space-between; margin-top: 12px; 
+            font-size: 0.85rem; color: rgba(255, 255, 255, 0.7); 
+            letter-spacing: 1px;
+        }
+        
+        /* Styled Range Sliders */
+        input[type="range"] { -webkit-appearance: none; width: 100%; background: transparent; margin: 8px 0; }
+        input[type="range"]:focus { outline: none; }
+        input[type="range"]::-webkit-slider-runnable-track { width: 100%; height: 4px; background: rgba(255, 255, 255, 0.1); border-radius: 2px; cursor: pointer; }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; height: 14px; width: 14px; background: #00f3ff; border: 2px solid #000; border-radius: 50%; cursor: pointer; margin-top: -5px; box-shadow: 0 0 10px #00f3ff; transition: transform 0.1s; }
+        input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+
+        /* File Button */
+        .file-btn {
+            display: flex; justify-content: center; align-items: center; width: 100%; padding: 12px 0; margin-top: 10px;
+            background: rgba(0, 243, 255, 0.1); border: 1px solid rgba(0, 243, 255, 0.5); color: #00f3ff;
+            font-family: 'Share Tech Mono', monospace; font-size: 1rem; cursor: pointer;
+            text-transform: uppercase; letter-spacing: 2px; transition: 0.3s;
+        }
+        .file-btn:hover { background: rgba(0, 243, 255, 0.2); box-shadow: 0 0 15px rgba(0, 243, 255, 0.3); text-shadow: 0 0 5px #00f3ff; border-color: #00f3ff; }
+        input[type="file"] { display: none; }
+        
+        .val-display { color: #fff; text-shadow: 0 0 5px rgba(255,255,255,0.5); }
+        
+        #mode-display { font-size: 1.8rem; color: #d000ff; text-align: right; text-shadow: 0 0 10px rgba(208, 0, 255, 0.6); }
+        
+        /* Spectrum Visualizer */
+        .spectrum { display: flex; gap: 4px; height: 30px; margin-top: 10px; align-items: flex-end; justify-content: flex-end; }
+        .spec-bar { width: 40px; background: #333; height: 4px; transition: height 0.08s ease-out; position: relative; }
+        #vis-low { background: linear-gradient(to top, #5500ff, #ff00ff); box-shadow: 0 0 10px #ff00ff; }
+        #vis-mid { background: linear-gradient(to top, #0055ff, #00f3ff); box-shadow: 0 0 10px #00f3ff; }
+        #vis-high { background: linear-gradient(to top, #ffaa00, #ffffaa); box-shadow: 0 0 10px #ffffaa; }
+        
+        .top-row { display: flex; justify-content: space-between; align-items: flex-start; }
+        .section-title { font-size: 0.8rem; color: rgba(255,255,255,0.4); margin-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom:2px;}
+        
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+    </style>
+    
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+                "@mediapipe/tasks-vision": "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0"
+            }
+        }
+    </script>
+</head>
+<body>
+
+    <div id="canvas-container"></div>
+
+    <div id="ui-layer">
+        <div class="top-row">
+            <div class="panel">
+                <h1>BORAN MADE</h1>
+                <div style="font-size: 0.8rem; color: rgba(0,243,255,0.7); display:flex; justify-content:space-between;">
+                    <span>FPS: <span id="fps" style="color:#fff;">--</span></span>
+                    <span>ENTITIES: 36K</span>
+                </div>
+                
+                <div id="webcam-wrapper">
+                    <video id="webcam" autoplay playsinline></video>
+                    <div id="gesture-status">VISION SYSTEM INITIALIZING...</div>
+                </div>
+            </div>
+
+            <div class="panel" style="text-align: right; min-width: 200px;">
+                <div class="section-title">GEOMETRY ENGINE</div>
+                <div id="mode-display">WORMHOLE</div>
+                <div style="font-size: 0.75rem; margin-top:5px; color:rgba(255,255,255,0.5);">PRESS [SPACE] TO MORPH</div>
+                
+                <div style="margin-top: 20px;">
+                    <div class="section-title" style="text-align: right;">SPECTRAL ANALYZER</div>
+                    <div class="spectrum">
+                        <div id="vis-low" class="spec-bar"></div>
+                        <div id="vis-mid" class="spec-bar"></div>
+                        <div id="vis-high" class="spec-bar"></div>
+                    </div>
+                    <div style="font-size: 0.7rem; display:flex; justify-content:flex-end; gap:25px; color:rgba(255,255,255,0.5); margin-top:2px;">
+                        <span>L</span><span>M</span><span>H</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel" style="margin-top: auto;">
+            <div class="section-title">// AUDIO_MIXER_CONSOLE</div>
+            
+            <label class="file-btn">
+                [ UPLOAD_AUDIO_SOURCE ]
+                <input type="file" id="audioInput" accept="audio/mp3, audio/wav">
+            </label>
+
+            <div class="control-group">
+                <label>LOW FREQ [BASS] <span id="v-low" class="val-display">2.0</span></label>
+                <input type="range" id="lowRange" min="0" max="5.0" step="0.1" value="2.0">
+
+                <label>MID FREQ [SWIRL] <span id="v-mid" class="val-display">2.0</span></label>
+                <input type="range" id="midRange" min="0" max="5.0" step="0.1" value="2.0">
+                
+                <label>HIGH FREQ [SHIMMER] <span id="v-high" class="val-display">2.0</span></label>
+                <input type="range" id="highRange" min="0" max="5.0" step="0.1" value="2.0">
+
+                <div style="border-top: 1px solid rgba(255,255,255,0.1); margin: 15px 0;"></div>
+
+                <label>PARTICLE DENSITY <span id="v-size" class="val-display">2.0</span></label>
+                <input type="range" id="sizeRange" min="1.0" max="5.0" step="0.1" value="2.0">
+                
+                <label>BLOOM INTENSITY <span id="v-glow" class="val-display">1.8</span></label>
+                <input type="range" id="glowRange" min="0.5" max="3.5" step="0.1" value="1.8">
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+        import { FilesetResolver, HandLandmarker } from '@mediapipe/tasks-vision';
+
+        // --- 1. CONFIG & SCENE ---
+        const COUNT = 36000; 
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x000000, 0.001);
+
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 10000); // Increased Z
+        camera.position.set(0, 100, 900);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+        const composer = new EffectComposer(renderer);
+        composer.addPass(new RenderPass(scene, camera));
+        
+        const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
+        bloomPass.threshold = 0;
+        bloomPass.strength = 1.8;
+        bloomPass.radius = 0.6;
+        composer.addPass(bloomPass);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.autoRotate = true;
+        controls.autoRotateSpeed = 0.3;
+
+        // --- 2. PARTICLES & GEOMETRY ---
+        const geometry = new THREE.BufferGeometry();
+        const positions = new Float32Array(COUNT * 3);
+        const targetPositions = new Float32Array(COUNT * 3);
+        const colors = new Float32Array(COUNT * 3); 
+        const sizes = new Float32Array(COUNT);
+
+        // --- EXPANDED SHAPE COLLECTION ---
+        const shapes = { 
+            wormhole: [], data_helix: [], cyber_grid: [], stargate: [], nebula_knot: [],
+            mobius_strip: [], lorenz_attractor: [], hyper_torus: [], fibonacci_sphere: []
+        };
+
+        // --- SHAPE GENERATORS ---
+        // 1. WORMHOLE
+        for(let i=0; i<COUNT; i++) {
+            const t = i / COUNT; const angle = t * Math.PI * 40; const z = (t - 0.5) * 3000; 
+            const radius = 200 + Math.pow(Math.abs(t - 0.5) * 2, 2) * 1000;
+            shapes.wormhole.push(Math.cos(angle)*radius + (Math.random()-0.5)*50, Math.sin(angle)*radius + (Math.random()-0.5)*50, z);
+        }
+        // 2. DATA HELIX
+        for(let i=0; i<COUNT; i++) {
+            const t = i / COUNT; const angle = t * Math.PI * 30; const height = (t - 0.5) * 2500;
+            const radius = 500; const strandOffset = (i % 2 === 0) ? 0 : Math.PI; const br = Math.random() > 0.95 ? 300 : 20;
+            shapes.data_helix.push(Math.cos(angle+strandOffset)*radius + (Math.random()-0.5)*br, height, Math.sin(angle+strandOffset)*radius + (Math.random()-0.5)*br);
+        }
+        // 3. CYBER GRID
+        const gridSize = Math.sqrt(COUNT); const spacing = 60;
+        for(let i=0; i<COUNT; i++) {
+            const ix = i % gridSize; const iz = Math.floor(i / gridSize);
+            const x = (ix - gridSize/2) * spacing; const z = (iz - gridSize/2) * spacing;
+            const y = Math.sin(x*0.005) * Math.cos(z*0.005) * 400 + (Math.random()-0.5)*50;
+            shapes.cyber_grid.push(x, y, z);
+        }
+        // 4. STARGATE
+        for(let i=0; i<COUNT; i++) {
+            const u = i / COUNT * Math.PI * 2; const p = 3; const q = 7; const r = 700 + 180 * Math.cos(q * u);
+            shapes.stargate.push(r * Math.cos(p * u), r * Math.sin(p * u), 180 * Math.sin(q * u) * 2.5 + (Math.random()-0.5)*100);
+        }
+        // 5. NEBULA KNOT
+        for(let i=0; i<COUNT; i++) {
+             const t = (i/COUNT) * Math.PI * 120; const scale = 600;
+             shapes.nebula_knot.push(scale*(Math.cos(t)+Math.cos(3*t))*0.5+(Math.random()-0.5)*200, scale*(Math.sin(t)+Math.sin(3*t))*0.5+(Math.random()-0.5)*200, scale*Math.sin(4*t)*0.5+(Math.random()-0.5)*300);
+        }
+        // --- NEW SHAPES ---
+        // 6. MOBIUS STRIP
+        for(let i=0; i<COUNT; i++) {
+            const u = (i/COUNT) * Math.PI * 2; const w = (Math.random() - 0.5) * 300; const R = 600;
+            shapes.mobius_strip.push((R + w*Math.cos(u/2))*Math.cos(u), (R + w*Math.cos(u/2))*Math.sin(u), w*Math.sin(u/2));
+        }
+        // 7. LORENZ ATTRACTOR (Chaos)
+        let lx=0.1, ly=0, lz=0; const dt=0.005; const sigma=10, rho=28, beta=8/3; const scaleL=25;
+        for(let i=0; i<COUNT; i++) {
+            let dx = sigma*(ly-lx)*dt; let dy = (lx*(rho-lz)-ly)*dt; let dz = (lx*ly-beta*lz)*dt;
+            lx+=dx; ly+=dy; lz+=dz;
+            shapes.lorenz_attractor.push(lx*scaleL, ly*scaleL, (lz-25)*scaleL);
+        }
+        // 8. HYPER TORUS (4D projection attempt)
+        for(let i=0; i<COUNT; i++) {
+            const u = (i/COUNT) * Math.PI * 4; const v = (i/COUNT) * Math.PI * 20; 
+            const R = 600; const r1 = 200; const r2 = 100;
+            // Simulating 4D rotation effect by oscillating radii
+            const rDyn = r1 + r2 * Math.cos(v);
+            shapes.hyper_torus.push((R + rDyn*Math.cos(u))*Math.cos(v*0.1), (R + rDyn*Math.cos(u))*Math.sin(v*0.1), rDyn*Math.sin(u) + Math.sin(v)*100);
+        }
+        // 9. FIBONACCI SPHERE (Math perfect sphere)
+        const phi = Math.PI * (3.0 - Math.sqrt(5.0)); // Golden angle
+        for(let i=0; i<COUNT; i++) {
+            const y = 1 - (i / (COUNT - 1)) * 2; const radius = Math.sqrt(1 - y * y);
+            const theta = phi * i; const R = 700;
+            shapes.fibonacci_sphere.push(Math.cos(theta)*radius*R, y*R, Math.sin(theta)*radius*R);
+        }
+
+
+        // Init
+        for(let i=0; i<COUNT*3; i++) {
+            positions[i] = shapes.wormhole[i];
+            targetPositions[i] = shapes.wormhole[i];
+            colors[i] = Math.random(); 
+        }
+        for(let i=0; i<COUNT; i++) sizes[i] = Math.random();
+
+        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        geometry.setAttribute('colorAttr', new THREE.BufferAttribute(colors, 1)); 
+        geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+
+        // --- SHADER ---
+        const uniforms = {
+            uTime: { value: 0 },
+            uBass: { value: 0 }, uMid: { value: 0 }, uHigh: { value: 0 },
+            uHandScale: { value: 1.0 },
+            uLowAmp: { value: 2.0 }, uMidAmp: { value: 2.0 }, uHighAmp: { value: 2.0 },
+            uBaseSize: { value: 2.0 }
+        };
+
+        const material = new THREE.ShaderMaterial({
+            uniforms: uniforms,
+            vertexShader: `
+                uniform float uTime;
+                uniform float uBass; uniform float uMid; uniform float uHigh;
+                uniform float uLowAmp; uniform float uMidAmp; uniform float uHighAmp;
+                uniform float uHandScale; uniform float uBaseSize;
+                attribute float size; attribute float colorAttr; 
+                varying float vType; varying float vIntensity;
+                void main() {
+                    vType = colorAttr; vec3 pos = position;
+                    float isBass = 1.0 - step(0.33, colorAttr); float isHigh = step(0.66, colorAttr); float isMid = 1.0 - isBass - isHigh;
+                    vec3 dir = normalize(pos);
+                    
+                    // 1. Bass
+                    vec3 moveBass = dir * uBass * 80.0 * uLowAmp;
+                    // 2. Mid (Vortex)
+                    float swirlAngle = uMid * uMidAmp * 0.5; float s = sin(swirlAngle); float c = cos(swirlAngle);
+                    float nx = pos.x * c - pos.z * s; float nz = pos.x * s + pos.z * c;
+                    vec3 moveMid = (vec3(nx, pos.y, nz) - pos) * isMid;
+                    // 3. High (Shimmer)
+                    float noise = sin(uTime * 8.0 + pos.x); vec3 moveHigh = dir * noise * uHigh * 5.0 * uHighAmp;
+                    
+                    pos *= uHandScale;
+                    pos += (moveBass * isBass) + moveMid + (moveHigh * isHigh);
+                    vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0); gl_Position = projectionMatrix * mvPosition;
+                    
+                    float beatSize = 1.0 + (isBass * uBass * uLowAmp) + (isHigh * uHigh * uHighAmp);
+                    gl_PointSize = (uBaseSize * size * beatSize * uHandScale * 3.0) * (300.0 / -mvPosition.z);
+                    vIntensity = (isBass * uBass) + (isMid * uMid) + (isHigh * uHigh);
+                }
+            `,
+            fragmentShader: `
+                varying float vType; varying float vIntensity; uniform float uHandScale;
+                void main() {
+                    if (dot(gl_PointCoord - 0.5, gl_PointCoord - 0.5) > 0.25) discard;
+                    vec3 colBass = vec3(1.0, 0.0, 0.5); vec3 colMid = vec3(0.0, 1.0, 0.8); vec3 colHigh = vec3(1.0, 1.0, 0.5);
+                    float isBass = 1.0 - step(0.33, vType); float isHigh = step(0.66, vType); float isMid = 1.0 - isBass - isHigh;
+                    vec3 finalCol = (colBass * isBass) + (colMid * isMid) + (colHigh * isHigh);
+                    finalCol += vec3(vIntensity * 0.8);
+                    gl_FragColor = vec4(finalCol, 0.85);
+                }
+            `,
+            transparent: true,
+            depthWrite: false,
+            blending: THREE.AdditiveBlending
+        });
+
+        const particles = new THREE.Points(geometry, material);
+        scene.add(particles);
+
+        // --- UI EVENTS ---
+        const rLow = document.getElementById('lowRange'); const vLow = document.getElementById('v-low'); rLow.addEventListener('input', (e) => { uniforms.uLowAmp.value = parseFloat(e.target.value); vLow.innerText = e.target.value; });
+        const rMid = document.getElementById('midRange'); const vMid = document.getElementById('v-mid'); rMid.addEventListener('input', (e) => { uniforms.uMidAmp.value = parseFloat(e.target.value); vMid.innerText = e.target.value; });
+        const rHigh = document.getElementById('highRange'); const vHigh = document.getElementById('v-high'); rHigh.addEventListener('input', (e) => { uniforms.uHighAmp.value = parseFloat(e.target.value); vHigh.innerText = e.target.value; });
+        const rSize = document.getElementById('sizeRange'); const vSize = document.getElementById('v-size'); rSize.addEventListener('input', (e) => { uniforms.uBaseSize.value = parseFloat(e.target.value); vSize.innerText = e.target.value; });
+        const rGlow = document.getElementById('glowRange'); const vGlow = document.getElementById('v-glow'); rGlow.addEventListener('input', (e) => { bloomPass.strength = parseFloat(e.target.value); vGlow.innerText = e.target.value; });
+
+        // --- HAND TRACKING ---
+        const video = document.getElementById('webcam'); const gstStatus = document.getElementById('gesture-status'); let handLandmarker; let lastVidTime = -1; let targetScale = 1.0; let curScale = 1.0;
+        async function initVision() { const resolver = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm"); handLandmarker = await HandLandmarker.createFromOptions(resolver, { baseOptions: { modelAssetPath: `https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task`, delegate: "GPU" }, runningMode: "VIDEO", numHands: 1 }); gstStatus.innerText = ">> SYSTEM READY <<"; if(navigator.mediaDevices?.getUserMedia) { navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 240 } }).then(stream => { video.srcObject = stream; video.addEventListener("loadeddata", predictLoop); }); } }
+        initVision();
+        async function predictLoop() { if(video.currentTime !== lastVidTime && handLandmarker) { lastVidTime = video.currentTime; const result = handLandmarker.detectForVideo(video, performance.now()); if(result.landmarks.length > 0) { const lm = result.landmarks[0]; const wrist = lm[0]; const tips = [lm[4], lm[8], lm[12], lm[16], lm[20]]; let dist = 0; tips.forEach(t => dist += Math.sqrt(Math.pow(t.x-wrist.x,2) + Math.pow(t.y-wrist.y,2))); const avg = dist / 5; if(avg < 0.2) { targetScale = 0.2; gstStatus.innerText = "⚠ COLLAPSING UNIVERSE ⚠"; gstStatus.style.color="#ff0055"; } else if (avg > 0.35) { targetScale = 1.6; gstStatus.innerText = ">> EXPANDING FIELD <<"; gstStatus.style.color="#00f3ff"; } else { targetScale = 1.0; gstStatus.innerText = "HAND DETECTED"; gstStatus.style.color="#fff"; } } else { targetScale = 1.0; gstStatus.innerText = "SCANNING SECTOR..."; gstStatus.style.color="#555"; } } requestAnimationFrame(predictLoop); }
+
+        // --- AUDIO ---
+        let analyser, dataArray; let sBass = 0, sMid = 0, sHigh = 0;
+        document.getElementById('audioInput').addEventListener('change', (e) => { const f = e.target.files[0]; if(!f) return; const r = new FileReader(); r.onload = (ev) => { const ac = new (window.AudioContext || window.webkitAudioContext)(); ac.decodeAudioData(ev.target.result, (buf) => { const src = ac.createBufferSource(); src.buffer = buf; analyser = ac.createAnalyser(); analyser.fftSize = 2048; analyser.smoothingTimeConstant = 0.8; src.connect(analyser); analyser.connect(ac.destination); src.start(0); dataArray = new Uint8Array(analyser.frequencyBinCount); }); }; r.readAsArrayBuffer(f); });
+
+        const keys = Object.keys(shapes); let curShape = 0;
+        window.addEventListener('keydown', (e) => { if(e.code === 'Space') { curShape = (curShape + 1) % keys.length; document.getElementById('mode-display').innerText = keys[curShape].toUpperCase(); const arr = shapes[keys[curShape]]; for(let i=0; i<COUNT*3; i++) targetPositions[i] = arr[i]; } });
+
+        const fpsEl = document.getElementById('fps'); let lastTime = 0; const barLow = document.getElementById('vis-low'); const barMid = document.getElementById('vis-mid'); const barHigh = document.getElementById('vis-high');
+        function animate(time) { requestAnimationFrame(animate); const dt = (time - lastTime) / 1000; lastTime = time; if(time%500<20) fpsEl.innerText = Math.round(1/dt);
+            let rBass = 0, rMid = 0, rHigh = 0;
+            if(analyser) { analyser.getByteFrequencyData(dataArray); const len = dataArray.length; let bSum=0, bEnd=Math.floor(len*0.02); for(let i=0;i<bEnd;i++) bSum+=dataArray[i]; rBass=(bSum/bEnd)/255; let mSum=0, mEnd=Math.floor(len*0.3); for(let i=bEnd;i<mEnd;i++) mSum+=dataArray[i]; rMid=(mSum/(mEnd-bEnd))/255; let hSum=0; for(let i=mEnd;i<len;i++) hSum+=dataArray[i]; rHigh=(hSum/(len-mEnd))/255; }
+            rHigh = Math.min(rHigh * 1.8, 1.0); if(rBass<0.25) rBass=0; if(rMid<0.2) rMid=0; if(rHigh<0.05) rHigh=0;
+            if(rBass>sBass) sBass+=(rBass-sBass)*0.6; else sBass+=(rBass-sBass)*0.15; sMid+=(rMid-sMid)*0.2; sHigh+=(rHigh-sHigh)*0.4;
+            curScale+=(targetScale-curScale)*0.05;
+            uniforms.uTime.value=time*0.001; uniforms.uBass.value=sBass; uniforms.uMid.value=sMid; uniforms.uHigh.value=sHigh; uniforms.uHandScale.value=curScale;
+            barLow.style.height=(sBass*100)+"%"; barMid.style.height=(sMid*100)+"%"; barHigh.style.height=(sHigh*100)+"%";
+            const pos = geometry.attributes.position.array; for(let i=0;i<COUNT*3;i++) pos[i]+=(targetPositions[i]-pos[i])*0.03; geometry.attributes.position.needsUpdate=true;
+            controls.update(); composer.render(); }
+        window.addEventListener('resize', () => { camera.aspect=window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); composer.setSize(window.innerWidth, window.innerHeight); });
+        animate(0);
+    </script>
+</body>
+</html>
